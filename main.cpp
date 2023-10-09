@@ -2,16 +2,16 @@
 #include <vector>
 #include <string>
 #include <sstream>
-#include <bitset>
 #include <stdexcept>
 #include <iomanip>
+#include <algorithm>
 
 struct Subnet {
     std::string name;
-    std::string network;
-    std::string broadcast;
     int size;
     int x;
+    int block;
+    std::string mask;
 };
 
 std::string applySubnetMask(const std::string& ip, int prefixLength) {
@@ -31,6 +31,29 @@ std::string applySubnetMask(const std::string& ip, int prefixLength) {
     result.pop_back();  // Remove the trailing '.'
 
     return result;
+}
+
+std::string calculateSubnetMask(int prefixLength) {
+    std::string mask = "";
+    int remainingBits = prefixLength;
+    int octet = 0xFF;  // Start with 8 bits set to 1.
+
+    while (remainingBits >= 8) {
+        mask += std::to_string(octet);
+        mask += ".";
+        remainingBits -= 8;
+    }
+
+    // Calculate the last octet if there are remaining bits.
+    if (remainingBits > 0) {
+        int lastOctetMask = (0xFF << (8 - remainingBits)) & 0xFF;
+        mask += std::to_string(lastOctetMask);
+    } else {
+        // Remove the trailing dot.
+        mask.pop_back();
+    }
+
+    return mask;
 }
 
 void clearBuffer() {
@@ -63,36 +86,46 @@ int main() {
         std::cin >> prefixLength;
 
         try {
-            subnet.network = applySubnetMask(ip, prefixLength);
+            subnet.size = prefixLength;
 
-            // Calcular la dirección de broadcast
-            std::bitset<32> bits(std::stoul(subnet.network, nullptr, 0));
-            for (int i = 31; i >= 31 - (32 - prefixLength); --i) {
-                bits[i] = 1;
+            // Calcular 'x' y el bloque
+            int x = 0;
+            while (true) {
+                if ((1 << x) >= (prefixLength + 2)) {
+                    break;
+                }
+                x++;
             }
-            subnet.broadcast = std::to_string(static_cast<unsigned long>(bits.to_ulong()));
+            subnet.x = x;
+            subnet.block = 1 << x;
 
-            subnet.size = 32 - prefixLength;
-            subnet.x = subnet.size + 2;
+            // Calcular la máscara como "32 - x"
+            int mask = 32 - x;
+            subnet.mask = "/" + std::to_string(mask) + " (" + calculateSubnetMask(mask) + ")";
+            subnet.name = subnetName; // Asignar el nombre aquí
+
+            subnets.push_back(subnet);
 
         } catch (const std::invalid_argument& e) {
             std::cerr << "Error: Dirección IP o máscara inválida. Asegúrate de ingresar una dirección IP válida y una longitud de prefijo válida.\n";
             return 1;
         }
 
-        subnet.name = subnetName;
-        subnets.push_back(subnet);
-
         std::cout << "¿Desea agregar otra subred? (y/n): ";
         std::cin >> addSubnet;
     } while (addSubnet == 'y' || addSubnet == 'Y');
 
+    // Ordenar la tabla por el tamaño (size) en orden descendente
+    std::sort(subnets.begin(), subnets.end(), [](const Subnet& a, const Subnet& b) {
+        return a.size > b.size;
+    });
+
     // Mostrar la tabla de subredes
     std::cout << "\nTabla de subredes:\n";
-    std::cout << std::left << std::setw(20) << "SUBRED" << std::setw(10) << "SIZE" << std::setw(10) << "X" << std::setw(10) << "BLOCK" << std::setw(25) << "MASK" << "\n";
+    std::cout << std::left << std::setw(20) << "SUBRED" << std::setw(10) << "SIZE" << std::setw(10) << "X" << std::setw(10) << "BLOCK" << std::setw(20) << "MASK" << "\n";
+
     for (const Subnet& subnet : subnets) {
-        std::cout << std::left << std::setw(20) << subnet.name << std::setw(10) << subnet.size << std::setw(10) << subnet.x << std::setw(10) << " /" << subnet.size << " ("
-                  << applySubnetMask("255.255.255.255", subnet.size) << ")\n";
+        std::cout << std::left << std::setw(20) << subnet.name << std::setw(10) << subnet.size << std::setw(10) << subnet.x << std::setw(10) << subnet.block << std::setw(20) << subnet.mask << "\n";
     }
 
     return 0;
