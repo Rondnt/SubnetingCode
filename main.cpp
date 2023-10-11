@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <iomanip>
 #include <algorithm>
+#include <cmath>
 
 struct Subnet {
     std::string name;
@@ -85,12 +86,22 @@ void clearBuffer() {
 
 int main() {
     std::string ip;
+    int numSubnets;
+    int maxHosts;
     char addSubnet;
 
     std::vector<Subnet> subnets;
 
-    std::cout << "Ingrese una dirección IP (en formato x.x.x.x o x.x.x.x/y): ";
+    std::cout << "Ingrese dirección IP (en formato x.x.x.x): ";
     std::cin >> ip;
+
+    std::cout << "Cantidad de subredes: ";
+    std::cin >> numSubnets;
+
+    std::cout << "Cantidad máxima de hosts por subred: ";
+    std::cin >> maxHosts;
+
+    int prefixLength = 32 - static_cast<int>(std::ceil(std::log2(maxHosts + 2))); // Calcula la longitud del prefijo
 
     do {
         Subnet subnet;
@@ -100,34 +111,24 @@ int main() {
         std::cout << "Ingrese el nombre de la subred: ";
         std::getline(std::cin, subnet.name);
 
-        int prefixLength;
-        std::cout << "Ingrese la longitud del prefijo (CIDR) para la subred " << subnet.name << ": ";
-        std::cin >> prefixLength;
+        subnet.size = prefixLength;
 
-        try {
-            subnet.size = prefixLength;
-
-            // Calcular 'x' y el bloque
-            int x = 0;
-            while (true) {
-                if ((1 << x) >= (prefixLength + 2)) {
-                    break;
-                }
-                x++;
+        // Calcular 'x' y el bloque
+        int x = 0;
+        while (true) {
+            if ((1 << x) >= (prefixLength + 2)) {
+                break;
             }
-            subnet.x = x;
-            subnet.block = 1 << x;
-
-            // Calcular la máscara como "32 - x"
-            int mask = 32 - x;
-            subnet.mask = "/" + std::to_string(mask) + " (" + calculateSubnetMask(mask) + ")";
-
-            subnets.push_back(subnet);
-
-        } catch (const std::invalid_argument& e) {
-            std::cerr << "Error: Longitud del prefijo inválida. Asegúrate de ingresar una longitud de prefijo válida.\n";
-            return 1;
+            x++;
         }
+        subnet.x = x;
+        subnet.block = 1 << x;
+
+        // Calcular la máscara como "32 - x"
+        int mask = 32 - x;
+        subnet.mask = "/" + std::to_string(mask) + " (" + calculateSubnetMask(mask) + ")";
+
+        subnets.push_back(subnet);
 
         std::cout << "¿Desea agregar otra subred? (y/n): ";
         std::cin >> addSubnet;
@@ -150,28 +151,19 @@ int main() {
     std::cout << "\nTabla de cálculo de Direcciones de Red y Broadcast:\n";
     std::cout << std::left << std::setw(20) << "SUBRED" << std::setw(30) << "IP FORMAT" << std::setw(20) << "NETWORK ADD" << std::setw(20) << "BROADCAST ADD" << "\n";
 
-    std::string ipFormat = "172.00010000.00000000."; // Prefix for IP Format
-    std::string networkAdd = "172.16.0.";
+    std::string networkAdd = "192.168.10.0";
     int currentAddress = 0;
 
     for (const Subnet& subnet : subnets) {
-        std::string ipFormatLine = ipFormat;
-        std::string networkAddLine = networkAdd + std::to_string(currentAddress);
-
-        for (int i = 0; i < subnet.x; i++) {
-            ipFormatLine += "1";
-        }
-
-        for (int i = subnet.x; i < 6; i++) {
-            ipFormatLine += "0";
-        }
-
-        int broadcast = currentAddress + subnet.block - 1;
-        std::string broadcastAddLine = networkAdd + std::to_string(broadcast);
-
-        std::cout << std::left << std::setw(20) << subnet.name << std::setw(30) << ipFormatLine << std::setw(20) << networkAddLine << std::setw(20) << broadcastAddLine << "\n";
+        std::string broadcastAddress = calculateBroadcastAddress(networkAdd, subnet.size);
+        std::string hostRangeStart = networkAdd;
+        hostRangeStart.replace(hostRangeStart.rfind(".")+1, 3, std::to_string(currentAddress + 1));
+        std::string hostRangeEnd = calculateBroadcastAddress(networkAdd, subnet.size - 1);
+        
+        std::cout << std::left << std::setw(20) << subnet.name << std::setw(30) << networkAdd << std::setw(20) << hostRangeStart << " Hasta " << hostRangeEnd << std::setw(20) << broadcastAddress << "\n";
 
         currentAddress += subnet.block;
+        networkAdd = calculateBroadcastAddress(networkAdd, subnet.size + 1);
     }
 
     return 0;
