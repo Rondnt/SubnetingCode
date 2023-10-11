@@ -148,7 +148,7 @@ int main() {
 
     // Mostrar la tabla de cálculo de Direcciones de Red y Broadcast
     std::cout << "\nTabla de cálculo de Direcciones de Red y Broadcast:\n";
-    std::cout << std::left << std::setw(20) << "SUBRED" << std::setw(20) << "IP FORMAT" << std::setw(20) << "NETWORK ADD" << std::setw(20) << "BROADCAST ADD" << "\n";
+    std::cout << std::left << std::setw(20) << "SUBRED" << std::setw(30) << "IP FORMAT" << std::setw(20) << "NETWORK ADD" << std::setw(20) << "BROADCAST ADD" << "\n";
 
     std::string ipFormat = "172.00010000.00000000."; // Prefix for IP Format
     std::string networkAdd = "172.16.0.";
@@ -169,7 +169,7 @@ int main() {
         int broadcast = currentAddress + subnet.block - 1;
         std::string broadcastAddLine = networkAdd + std::to_string(broadcast);
 
-        std::cout << std::left << std::setw(20) << subnet.name << std::setw(20) << ipFormatLine << std::setw(20) << networkAddLine << std::setw(20) << broadcastAddLine << "\n";
+        std::cout << std::left << std::setw(20) << subnet.name << std::setw(30) << ipFormatLine << std::setw(20) << networkAddLine << std::setw(20) << broadcastAddLine << "\n";
 
         currentAddress += subnet.block;
     }
